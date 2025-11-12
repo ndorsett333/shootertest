@@ -338,6 +338,8 @@ function _draw()
   
   -- draw win message only after victory timer expires
   if enemy_defeated and victory_timer == 0 then
+    
+    rectfill(35, 56, 85, 66, 1) 
     -- draw "You won!" text in the center of the screen
     print("You won!", 40, 60, 7) -- white text at center position
   end
