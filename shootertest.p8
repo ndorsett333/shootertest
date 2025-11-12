@@ -23,6 +23,8 @@ function _init()
   enemy_speed = 0.5  -- movement speed (reduced from 1)
   enemy_dir = 1   -- direction: 1 = right, -1 = left
   enemy_change_timer = 0  -- timer for direction changes
+  enemy_health = 3
+  enemy_defeated = false
   
   -- enemy shooting system
   enemy_bullets = {}
@@ -45,6 +47,11 @@ function _init()
   -- set initial spawn timer
   rock_spawn_timer = rock_spawn_delay_min + rnd(rock_spawn_delay_max - rock_spawn_delay_min)
   
+  -- victory system
+  victory_timer = 0
+  victory_delay = 45
+  victory_triggered = false
+  
   -- debug: add a stationary laser right above player to see alignment
   --[[
   add(bullets, {
@@ -63,19 +70,21 @@ end
 
 function _update()
   -- player movement controls
-  if btn(0) then -- left arrow
-    player_x = player_x - player_speed
-  end
-  if btn(1) then -- right arrow
-    player_x = player_x + player_speed
-  end
-  
-  -- keep player on screen
-  if player_x < 0 then
-    player_x = 0
-  end
-  if player_x > 120 then -- 128 - 8 (sprite width)
-    player_x = 120
+  if not enemy_defeated then
+    if btn(0) then -- left arrow
+      player_x = player_x - player_speed
+    end
+    if btn(1) then -- right arrow
+      player_x = player_x + player_speed
+    end
+    
+    -- keep player on screen
+    if player_x < 0 then
+      player_x = 0
+    end
+    if player_x > 120 then -- 128 - 8 (sprite width)
+      player_x = 120
+    end
   end
   
   -- update fire cooldown
@@ -104,6 +113,26 @@ function _update()
     if not bullet.debug then
       bullet.y = bullet.y - bullet_speed
       
+      -- check collision with enemy (if not defeated)
+      if not enemy_defeated and 
+         bullet.x >= enemy_x and bullet.x < enemy_x + 8 and
+         bullet.y >= enemy_y and bullet.y < enemy_y + 8 then
+        -- enemy hit sound
+        sfx(0)
+        
+        -- enemy takes damage
+        enemy_health = enemy_health - 1
+        del(bullets, bullet)
+        
+        -- check if enemy is defeated
+        if enemy_health <= 0 then
+          enemy_defeated = true
+          sfx(3) -- enemy death sound only
+          victory_timer = victory_delay
+        end
+        break -- exit since bullet is destroyed
+      end
+      
       -- check hit rocks
       for rock in all(rocks) do
         -- collision detection
@@ -122,56 +151,60 @@ function _update()
     end
   end
   
-  -- enemy AI - random movement
-  enemy_change_timer = enemy_change_timer - 1
-  
-  -- randomly change direction every 60-120 frames
-  if enemy_change_timer <= 0 then
-    enemy_dir = rnd() > 0.5 and 1 or -1  -- randomly choose left or right
-    enemy_change_timer = 60 + rnd(60)     -- reset timer to 60-120 frames
-  end
-  
-  -- move enemy in current direction
-  enemy_x = enemy_x + (enemy_speed * enemy_dir)
-  
-  -- bounce off screen edges and change direction
-  if enemy_x <= 0 then
-    enemy_x = 0
-    enemy_dir = 1  -- force right
-    enemy_change_timer = 30 + rnd(30)  -- shorter timer after bouncing
-  elseif enemy_x >= 120 then
-    enemy_x = 120
-    enemy_dir = -1  -- force left
-    enemy_change_timer = 30 + rnd(30)  -- shorter timer after bouncing
-  end
-  
-  -- enemy shooting system
-  enemy_shoot_timer = enemy_shoot_timer - 1
-  
-  -- check if enemy crosses player's path
-  local crossed_path = false
-  if (enemy_last_x < player_x and enemy_x >= player_x) or 
-     (enemy_last_x > player_x and enemy_x <= player_x) then
-    crossed_path = true
-  end
-  
-  -- shoot if timer expires OR if crossing player's path
-  if enemy_shoot_timer <= 0 or crossed_path then
-    -- play enemy shoot sound
-    sfx(1)
+  -- enemy AI - only move if not defeated
+  if not enemy_defeated then
+    enemy_change_timer = enemy_change_timer - 1
     
-    -- create new bullet at enemy position
-    add(enemy_bullets, {
-      x = enemy_x + 4, -- center of enemy sprite
-      y = enemy_y + 8  -- just below enemy sprite
-    })
+    -- randomly change direction every 60-120 frames
+    if enemy_change_timer <= 0 then
+      enemy_dir = rnd() > 0.5 and 1 or -1  -- randomly choose left or right
+      enemy_change_timer = 60 + rnd(60)     -- reset timer to 60-120 frames
+    end
     
-    -- reset shoot timer with random delay
-    enemy_shoot_timer = enemy_shoot_delay_min + rnd(enemy_shoot_delay_max - enemy_shoot_delay_min)
+    -- move enemy in current direction
+    enemy_x = enemy_x + (enemy_speed * enemy_dir)
+    
+    -- bounce off screen edges and change direction
+    if enemy_x <= 0 then
+      enemy_x = 0
+      enemy_dir = 1  -- force right
+      enemy_change_timer = 30 + rnd(30)  -- shorter timer after bouncing
+    elseif enemy_x >= 120 then
+      enemy_x = 120
+      enemy_dir = -1  -- force left
+      enemy_change_timer = 30 + rnd(30)  -- shorter timer after bouncing
+    end
   end
   
-  -- store enemy position for next frame path detection
-  enemy_last_x = enemy_x
+  -- enemy shooting system - only shoot if not defeated
+  if not enemy_defeated then
+    enemy_shoot_timer = enemy_shoot_timer - 1
+    
+    -- check if enemy crosses player's path
+    local crossed_path = false
+    if (enemy_last_x < player_x and enemy_x >= player_x) or 
+       (enemy_last_x > player_x and enemy_x <= player_x) then
+      crossed_path = true
+    end
+    
+    -- shoot if timer expires OR if crossing player's path
+    if enemy_shoot_timer <= 0 or crossed_path then
+      -- play enemy shoot sound
+      sfx(1)
+      
+      -- create new bullet at enemy position
+      add(enemy_bullets, {
+        x = enemy_x + 4, -- center of enemy sprite
+        y = enemy_y + 8  -- just below enemy sprite
+      })
+      
+      -- reset shoot timer with random delay
+      enemy_shoot_timer = enemy_shoot_delay_min + rnd(enemy_shoot_delay_max - enemy_shoot_delay_min)
+    end
+    
+    -- store enemy position for next frame path detection
+    enemy_last_x = enemy_x
+  end
   
   -- update enemy bullets
   for bullet in all(enemy_bullets) do
@@ -194,57 +227,71 @@ function _update()
     end
   end
   
-  -- rock obstacle system
-  rock_spawn_timer = rock_spawn_timer - 1
-  
-  -- spawn new rock when timer expires
-  if rock_spawn_timer <= 0 then
-    local rock_type = rnd()
+  if not enemy_defeated then
+    rock_spawn_timer = rock_spawn_timer - 1
     
-    if rock_type < 0.33 then
-      -- single rock sprite 6
-      add(rocks, {
-        x = 128,
-        y = 40 + rnd(48),
-        sprite = 6
-      })
-    elseif rock_type < 0.66 then
-      -- single rock sprite 7
-      add(rocks, {
-        x = 128,
-        y = 40 + rnd(48),
-        sprite = 7
-      })
-    else
-      -- long rock (sprites 6 and 7 combined)
-      local rock_y = 40 + rnd(48)
-      add(rocks, {
-        x = 128,
-        y = rock_y,
-        sprite = 22,
-        is_long = true,
-        partner_id = #rocks + 2 -- reference to the second part
-      })
-      add(rocks, {
-        x = 136, -- 8 pixels to the right
-        y = rock_y,
-        sprite = 23,
-        is_long = true,
-        partner_id = #rocks -- reference to the first part
-      })
+    -- spawn new rock when timer expires
+    if rock_spawn_timer <= 0 then
+      local rock_type = rnd()
+      
+      if rock_type < 0.33 then
+        -- single rock sprite 6
+        add(rocks, {
+          x = 128,
+          y = 40 + rnd(48),
+          sprite = 6
+        })
+      elseif rock_type < 0.66 then
+        -- single rock sprite 7
+        add(rocks, {
+          x = 128,
+          y = 40 + rnd(48),
+          sprite = 7
+        })
+      else
+        -- long rock (sprites 6 and 7 combined)
+        local rock_y = 40 + rnd(48)
+        add(rocks, {
+          x = 128,
+          y = rock_y,
+          sprite = 22,
+          is_long = true,
+          partner_id = #rocks + 2 -- reference to the second part
+        })
+        add(rocks, {
+          x = 136, -- 8 pixels to the right
+          y = rock_y,
+          sprite = 23,
+          is_long = true,
+          partner_id = #rocks -- reference to the first part
+        })
+      end
+      
+      -- reset spawn timer with random delay
+      rock_spawn_timer = rock_spawn_delay_min + rnd(rock_spawn_delay_max - rock_spawn_delay_min)
     end
-    
-    -- reset spawn timer with random delay
-    rock_spawn_timer = rock_spawn_delay_min + rnd(rock_spawn_delay_max - rock_spawn_delay_min)
   end
   
   -- update rocks
-  for rock in all(rocks) do
-    rock.x = rock.x - rock_speed
+  if not enemy_defeated then
+    for rock in all(rocks) do
+      rock.x = rock.x - rock_speed
+      
+      -- remove rocks that go off left edge
+      if rock.x < -8 then
+        del(rocks, rock)
+      end
+    end
+  end
+  
+  -- victory timer system
+  if enemy_defeated and victory_timer > 0 then
+    victory_timer = victory_timer - 1
     
-    -- remove rocks that go off left edge
-    if rock.x < -8 then
-      del(rocks, rock)
+    -- play victory sound when timer reaches zero
+    if victory_timer == 0 and not victory_triggered then
+      sfx(5) -- victory sound
+      victory_triggered = true
     end
   end
 end
@@ -257,6 +304,12 @@ function _draw()
   
   -- draw background map
   map(0, 0, 0, 0, 16, 16)
+  
+  -- draw health indicators based on enemy health
+  for i = 1, enemy_health do
+    -- draw health sprites at top of map (positions 0,0 1,0 2,0)
+    spr(21, (i-1) * 8, 0) -- sprite 21 for health indicators
+  end
   
   -- draw bullets
   for bullet in all(bullets) do
@@ -273,11 +326,21 @@ function _draw()
     spr(rock.sprite, rock.x, rock.y)
   end
   
-  -- draw enemy (sprite 2)
-  spr(2, enemy_x, enemy_y)
+  -- draw enemy (sprite 2 or 34 if defeated)
+  if enemy_defeated then
+    spr(34, enemy_x, enemy_y) -- defeated enemy sprite
+  else
+    spr(2, enemy_x, enemy_y) -- normal enemy sprite
+  end
   
   -- draw player ship (sprite 1)
   spr(1, player_x, player_y)
+  
+  -- draw win message only after victory timer expires
+  if enemy_defeated and victory_timer == 0 then
+    -- draw "You won!" text in the center of the screen
+    print("You won!", 40, 60, 7) -- white text at center position
+  end
 end
 __gfx__
 00000000000660000000000000000000000000001111111105550000000005500000000000000000000000000000000000000000000000000000000000000000
@@ -297,7 +360,7 @@ __gfx__
 00000000000000001118111100000000000000000707070055555555555555550000000000000000000000000000000000000000000000000000000000000000
 00000000000000001111111100000000000000000000000005555555005555000000000000000000000000000000000000000000000000000000000000000000
 __map__
-1515150000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000003000000130000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0014000014000000001400000013000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000014000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -314,6 +377,9 @@ __map__
 0300000000040000040000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 1212120505050505050505050505050500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
-000500001e65020650216502760027600276002760025100251002710028100000000000026700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000700001e65020650216502760027600276002760002700025000250002700028000000000000026000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00060000212501b250242002420000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00060000182501e250212500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000700001b6501b6401b6401b6301b6301b6301b6301b6201b6201b6201b6201a6201a6201b6201b6101b6101b6101b6100000000000000000000000000000000000000000000000000000000000000000000000
+001000001f1501c14019130171301512013120111200f1200b1200512000120061000410002100011000010003100000000000000000000000000000000000000000000000000000000000000000000000000000
+000a00001a5501d550245502455026550295502e55030550245502655029550305502c10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
