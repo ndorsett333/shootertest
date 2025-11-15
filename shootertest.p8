@@ -291,6 +291,15 @@ function _update()
     end
   end
   
+  -- cheat code: hold up + X + O to win
+  if btn(2) and btn(4) and btn(5) and not enemy_defeated then
+    enemy_health = 0
+    enemy_defeated = true
+    music(-1)
+    sfx(3)
+    victory_timer = victory_delay
+  end
+  
   -- victory timer system
   if enemy_defeated and victory_timer > 0 then
     victory_timer = victory_timer - 1
