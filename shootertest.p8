@@ -53,6 +53,16 @@ function _init()
   victory_delay = 45
   victory_triggered = false
   
+  -- player lives
+  player_lives = 3 
+  player_hit_timer = 0 
+  player_hit_delay = 60
+  
+  -- player death
+  player_death_timer = 0
+  player_death_delay = 45
+  player_death_triggered = false
+  
   -- debug: add a stationary laser right above player to see alignment
   --[[
   add(bullets, {
@@ -74,7 +84,7 @@ end
 
 function _update()
   -- player movement controls
-  if not enemy_defeated then
+  if not enemy_defeated and player_lives > 0 then
     if btn(0) then -- left arrow
       player_x = player_x - player_speed
     end
@@ -96,9 +106,14 @@ function _update()
     fire_cooldown = fire_cooldown - 1
   end
   
+  -- update player hit timer (invincibility frames)
+  if player_hit_timer > 0 then
+    player_hit_timer = player_hit_timer - 1
+  end
+  
   -- shooting
   local fire_button_pressed = btn(5)
-  if fire_button_pressed and not fire_button_was_pressed and fire_cooldown <= 0 then
+  if fire_button_pressed and not fire_button_was_pressed and fire_cooldown <= 0 and not enemy_defeated and player_lives > 0 then
     -- play laser sound
     sfx(2)
     
@@ -158,8 +173,8 @@ function _update()
     end
   end
   
-  -- enemy AI - only move if not defeated
-  if not enemy_defeated then
+  -- enemy AI - only move if not defeated and player is alive
+  if not enemy_defeated and player_lives > 0 then
     enemy_change_timer = enemy_change_timer - 1
     
     -- randomly change direction every 60-120 frames
@@ -183,8 +198,8 @@ function _update()
     end
   end
   
-  -- enemy shooting system - only shoot if not defeated
-  if not enemy_defeated then
+  -- enemy shooting
+  if not enemy_defeated and player_lives > 0 then
     enemy_shoot_timer = enemy_shoot_timer - 1
     
     -- check if enemy crosses player's path
@@ -217,6 +232,25 @@ function _update()
   for bullet in all(enemy_bullets) do
     bullet.y = bullet.y + enemy_bullet_speed
     
+    -- check collision with player
+    if player_hit_timer <= 0 and player_lives > 0 and
+       bullet.x >= player_x and bullet.x < player_x + 8 and
+       bullet.y >= player_y and bullet.y < player_y + 8 then
+      -- player hit by enemy bullet
+      sfx(19)
+      player_lives = player_lives - 1
+      player_hit_timer = player_hit_delay -- start invincibility frames
+      del(enemy_bullets, bullet)
+      
+      -- check if player is out of lives
+      if player_lives <= 0 then
+        music(-1)
+        sfx(4) -- player death sound
+        player_death_timer = player_death_delay
+      end
+      break
+    end
+    
     -- check collision with rocks
     for rock in all(rocks) do
       -- simple collision detection (8x8 sprites)
@@ -234,7 +268,7 @@ function _update()
     end
   end
   
-  if not enemy_defeated then
+  if not enemy_defeated and player_lives > 0 then
     rock_spawn_timer = rock_spawn_timer - 1
     
     -- spawn new rock when timer expires
@@ -280,7 +314,7 @@ function _update()
   end
   
   -- update rocks
-  if not enemy_defeated then
+  if not enemy_defeated and player_lives > 0 then
     for rock in all(rocks) do
       rock.x = rock.x - rock_speed
       
@@ -310,6 +344,17 @@ function _update()
       victory_triggered = true
     end
   end
+  
+  -- player death timer system
+  if player_lives <= 0 and player_death_timer > 0 then
+    player_death_timer = player_death_timer - 1
+    
+    -- play death sound
+    if player_death_timer == 0 and not player_death_triggered then
+      -- sfx(4)
+      player_death_triggered = true
+    end
+  end
 end
 -->8
 --draw
@@ -325,6 +370,11 @@ function _draw()
   for i = 1, enemy_health do
     -- draw health sprites at top of map (positions 0,0 1,0 2,0)
     spr(21, (i-1) * 8, 0) -- sprite 21 for health indicators
+  end
+  
+  -- draw player lives
+  for i = 1, player_lives do
+    spr(18, (i-1) * 8, 120) -- sprite 18 for player life hearts
   end
   
   -- draw bullets
@@ -354,10 +404,16 @@ function _draw()
   
   -- draw win message only after victory timer expires
   if enemy_defeated and victory_timer == 0 then
-    
     rectfill(35, 56, 85, 66, 1) 
     -- draw "You won!" text in the center of the screen
     print("You won!", 40, 60, 7) -- white text at center position
+  end
+  
+  -- draw death message
+  if player_lives <= 0 and player_death_timer == 0 then
+    rectfill(35, 56, 85, 66, 1) 
+    
+    print("You Died", 40, 60, 7)
   end
 end
 __gfx__
@@ -393,7 +449,7 @@ __map__
 0014000004000400000000000000001300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0300000000040000040000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-1212120505050505050505050505050500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0505050505050505050505050505050500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
 000700001e65020650216502760027600276002760002700025000250002700028000000000000026000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00060000212501b250242002420000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -414,6 +470,7 @@ c9041f20182501825118221182111821118211182111821118111181111811118111181111811118
 000e150023e4023e4023e4023e400000017e4017e4017e4017e4017e4017e400000021e4021e4021e4021e4012e4012e4012e4012e4012e400140001400014000140001400014000140001400014000140001400
 000e13000be400be400be4000000000001ee40000001ae40000001ce40000000000017e4017e4017e4017e4017e4017e4017e4001400014000140001400014000140001400014000140001400014000140001400
 000e13001ae501ce401ce401ce401ce401ce401ce401ce40000000000000000000001ae400000023e4023e4023e4023e4023e4001400014000140001400014000140001400014000140001400014000140001400
+000b0000246501e64017620116201160000000000000000000000000001e20000000000000000000000213000000000000000001d40000000000001c500000000000000000000000000000000000000000000000
 __music__
 01 0708090a
 00 0b0c0d0e
