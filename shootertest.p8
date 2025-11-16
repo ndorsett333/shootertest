@@ -31,8 +31,8 @@ function _init()
   enemy_bullets = {}
   enemy_bullet_speed = 2
   enemy_shoot_timer = 0
-  enemy_shoot_delay_min = 60  
-  enemy_shoot_delay_max = 120 
+  enemy_shoot_delay_min = 15
+  enemy_shoot_delay_max = 45
   enemy_last_x = 60  -- track enemy's previous position for path crossing
   
   -- set initial enemy shoot timer
@@ -47,6 +47,39 @@ function _init()
   
   -- set initial spawn timer
   rock_spawn_timer = rock_spawn_delay_min + rnd(rock_spawn_delay_max - rock_spawn_delay_min)
+  
+  -- spawn rocks
+  for i = 1, 5 do
+    local rock_type = rnd()
+    local rock_x = 20 + i * 20
+    
+    if rock_type < 0.5 then
+      -- single rock 6 or 7
+      local sprite_choice = rnd() > 0.5 and 6 or 7
+      add(rocks, {
+        x = rock_x,
+        y = 40 + rnd(48),
+        sprite = sprite_choice
+      })
+    else
+      -- long rock 22 and 23
+      local rock_y = 40 + rnd(48)
+      add(rocks, {
+        x = rock_x,
+        y = rock_y,
+        sprite = 22,
+        is_long = true,
+        partner_id = #rocks + 2
+      })
+      add(rocks, {
+        x = rock_x + 8,
+        y = rock_y,
+        sprite = 23,
+        is_long = true,
+        partner_id = #rocks
+      })
+    end
+  end
   
   -- victory system
   victory_timer = 0
