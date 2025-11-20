@@ -24,7 +24,7 @@ function _init()
   enemy_speed = 1.25
   enemy_dir = 1   -- direction: 1 = right, -1 = left
   enemy_change_timer = 0  -- timer for direction changes
-  enemy_health = 3
+  enemy_health = 4
   enemy_defeated = false
   enemy_hit_timer = 0
   enemy_hit_delay = 30
@@ -293,6 +293,7 @@ function _update()
         music(-1)
         sfx(4) -- player death sound
         player_death_timer = player_death_delay
+        player_death_flash_timer = 0 -- reset flash timer
       end
       break
     end
@@ -477,16 +478,18 @@ function _draw()
   
   -- draw player ship
   if player_lives <= 0 then
-    local player_sprite = 34  -- default death sprite
     
-    -- flash between death sprite and empty sprite after death timer ends
-    if player_death_timer <= 0 then
+    if player_death_timer > 0 then
+      local player_sprite = 34  -- default death sprite
+      
+      
       if (player_death_flash_timer % 8) < 4 then
         player_sprite = 0  -- empty/transparent sprite
       end
+      
+      spr(player_sprite, player_x, player_y)
     end
-    
-    spr(player_sprite, player_x, player_y)
+    -- after death timer expires, don't draw player
   else
     local player_sprite = 1  -- default sprite
     
