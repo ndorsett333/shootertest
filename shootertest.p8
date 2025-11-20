@@ -21,7 +21,7 @@ function _init()
   -- enemy system
   enemy_x = 60  -- center
   enemy_y = 8   -- top of screen
-  enemy_speed = 1.0
+  enemy_speed = 1.25
   enemy_dir = 1   -- direction: 1 = right, -1 = left
   enemy_change_timer = 0  -- timer for direction changes
   enemy_health = 3
@@ -196,6 +196,7 @@ function _update()
           music(-1) -- stop music
           sfx(3) -- enemy death sound only
           victory_timer = victory_delay
+          enemy_death_flash_timer = 0 -- reset flash timer
         end
         break -- exit since bullet is destroyed
       end
@@ -402,14 +403,12 @@ function _update()
   end
   
   -- death flash timers
-  if player_lives <= 0 then
+  if player_lives <= 0 and player_death_timer > 0 then
     player_death_flash_timer = player_death_flash_timer + 1
   end
   
-  if enemy_defeated then
-    if enemy_defeated and victory_timer <= 0 then -- start flashing after victory timer
-      enemy_death_flash_timer = enemy_death_flash_timer + 1
-    end
+  if enemy_defeated and victory_timer > 0 then
+    enemy_death_flash_timer = enemy_death_flash_timer + 1
   end
 end
 -->8
@@ -450,16 +449,18 @@ function _draw()
   
   -- draw enemy (sprite 2 or death flash if defeated)
   if enemy_defeated then
-    local enemy_sprite = 34  -- default death sprite
-    
-    -- flash between death sprite and empty sprite after victory timer ends
-    if victory_timer <= 0 then
+    -- only show enemy during victory timer
+    if victory_timer > 0 then
+      local enemy_sprite = 34  -- default death/explosion sprite
+      
+      -- flash between explosion sprite and empty sprite
       if (enemy_death_flash_timer % 8) < 4 then
         enemy_sprite = 0  -- empty/transparent sprite
       end
+      
+      spr(enemy_sprite, enemy_x, enemy_y)
     end
-    
-    spr(enemy_sprite, enemy_x, enemy_y)
+    -- after victory timer expires
   else
     local enemy_sprite = 2
     
