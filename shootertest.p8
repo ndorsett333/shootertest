@@ -179,9 +179,10 @@ function _update()
       bullet.y = bullet.y - bullet_speed
       
       -- check collision with enemy (if not defeated)
+      
       if not enemy_defeated and 
-         bullet.x >= enemy_x and bullet.x < enemy_x + 8 and
-         bullet.y >= enemy_y and bullet.y < enemy_y + 8 then
+         bullet.x < enemy_x + 8 and bullet.x + 8 > enemy_x and
+         bullet.y < enemy_y + 8 and bullet.y + 8 > enemy_y then
         -- enemy hit sound
         sfx(0)
         
@@ -197,15 +198,18 @@ function _update()
           sfx(3) -- enemy death sound only
           victory_timer = victory_delay
           enemy_death_flash_timer = 0 -- reset flash timer
+          
+          -- clear all enemy bullets
+          enemy_bullets = {}
         end
         break -- exit since bullet is destroyed
       end
       
       -- check hit rocks
       for rock in all(rocks) do
-        -- collision detection
-        if bullet.x >= rock.x and bullet.x < rock.x + 8 and
-           bullet.y >= rock.y and bullet.y < rock.y + 8 then
+        
+        if bullet.x < rock.x + 8 and bullet.x + 8 > rock.x and
+           bullet.y < rock.y + 8 and bullet.y + 8 > rock.y then
           -- destroy bullet when if rock
           del(bullets, bullet)
           break -- exit rock loop since bullet is destroyed
@@ -280,8 +284,8 @@ function _update()
     
     -- check collision with player
     if player_hit_timer <= 0 and player_lives > 0 and
-       bullet.x >= player_x and bullet.x < player_x + 8 and
-       bullet.y >= player_y and bullet.y < player_y + 8 then
+       bullet.x < player_x + 8 and bullet.x + 8 > player_x and
+       bullet.y < player_y + 8 and bullet.y + 8 > player_y then
       -- player hit by enemy bullet
       sfx(19)
       player_lives = player_lives - 1
@@ -294,15 +298,18 @@ function _update()
         sfx(4) -- player death sound
         player_death_timer = player_death_delay
         player_death_flash_timer = 0 -- reset flash timer
+        
+        -- clear all bullets
+        bullets = {}
+        enemy_bullets = {}
       end
       break
     end
     
     -- check collision with rocks
     for rock in all(rocks) do
-      -- simple collision detection (8x8 sprites)
-      if bullet.x >= rock.x and bullet.x < rock.x + 8 and
-         bullet.y >= rock.y and bullet.y < rock.y + 8 then
+      if bullet.x < rock.x + 8 and bullet.x + 8 > rock.x and
+         bullet.y < rock.y + 8 and bullet.y + 8 > rock.y then
         -- destroy bullet when it hits a rock
         del(enemy_bullets, bullet)
         break -- exit rock loop since bullet is destroyed
