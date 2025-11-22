@@ -109,7 +109,14 @@ function _init()
   level_select_timer = 0
   level_select_delay = 90  -- timer
   selected_level = 1
-  max_level = 5  -- total levels
+  max_level = 3  -- total levels
+  
+  -- star system names
+  star_systems = {
+    "Zephyros Prime",
+    "Nexar Cluster", 
+    "Vortani Reach"
+  }
   
   -- debug: add a stationary laser right above player to see alignment
   --[[
@@ -131,6 +138,23 @@ end
 --update
 
 function _update()
+  -- level select controls
+  if game_state == "level_select" then
+    if btnp(2) then
+      if selected_level > 1 then
+        selected_level = selected_level - 1
+        sfx(20) -- cursor sound
+      end
+    end
+    if btnp(3) then
+      if selected_level < max_level then
+        selected_level = selected_level + 1
+        sfx(20) -- cursor sound
+      end
+    end
+    return
+  end
+  
   -- player movement controls
   if not enemy_defeated and player_lives > 0 then
     if btn(0) then -- left arrow
@@ -558,9 +582,9 @@ function _draw()
     -- draw level options
     for i = 1, max_level do
       local y_pos = 40 + (i * 8)
-      local level_text = "Level " .. i
+      local level_text = star_systems[i]
       
-      -- draw cursor
+      -- draw cursor for selected level
       if i == selected_level then
         print(">", 30, y_pos, 7)
         print(level_text, 38, y_pos, 7)  -- highlight selected
@@ -568,10 +592,6 @@ function _draw()
         print(level_text, 38, y_pos, 6)  -- normal color
       end
     end
-    
-    -- instructions
-    print("Up/Down: Navigate", 25, 85, 6)
-    print("X: Select", 25, 92, 6)
   end
 end
 __gfx__
@@ -637,6 +657,7 @@ c9041f20182501825118221182111821118211182111821118111181111811118111181111811118
 000e13000be400be400be4000000000001ee40000001ae40000001ce40000000000017e4017e4017e4017e4017e4017e4017e4001400014000140001400014000140001400014000140001400014000140001400
 000e13001ae501ce401ce401ce401ce401ce401ce401ce40000000000000000000001ae400000023e4023e4023e4023e4023e4001400014000140001400014000140001400014000140001400014000140001400
 000b0000246501e64017620116201160000000000000000000000000001e20000000000000000000000213000000000000000001d40000000000001c500000000000000000000000000000000000000000000000
+001000001805015000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __music__
 01 0708090a
 00 0b0c0d0e
