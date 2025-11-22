@@ -156,7 +156,7 @@ function _update()
         sfx(20) -- cursor sound
       end
     end
-    if btnp(4) then
+    if btnp(5) then -- select level
       if not level_select_confirmed then
         level_select_confirmed = true
         level_confirm_timer = level_confirm_delay
@@ -174,6 +174,7 @@ function _update()
         victory_triggered = false
         victory_timer = 0
         level_select_timer = 0
+        level_select_confirmed = false  -- reset confirmation state
         player_lives = 3
         player_hit_timer = 0
         player_death_timer = 0
