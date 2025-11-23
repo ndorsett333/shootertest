@@ -121,6 +121,11 @@ function _init()
     "Increase Fire"
   }
   
+  -- power-up vars
+  powerup_extra_life = false
+  powerup_increase_speed = false
+  powerup_increase_fire_speed = false
+  
   -- level select system
   level_select_timer = 0
   level_select_delay = 90  -- timer
@@ -160,10 +165,20 @@ end
 function _update()
   -- power-up select controls
   if game_state == "powerup_select" then
-    if btnp(2) then
+    -- adjust selected powerup if extra life is hidden and we're on option 1
+    if powerup_extra_life and selected_powerup == 1 then
+      selected_powerup = 2 -- move to first visible option
+    end
+    
+    if btnp(2) then -- up arrow pressed
       if selected_powerup > 1 then
         selected_powerup = selected_powerup - 1
-        sfx(20)
+        -- skip hidden extra life option
+        if powerup_extra_life and selected_powerup == 1 then
+          selected_powerup = 2
+        else
+          sfx(20)
+        end
       end
     end
     if btnp(3) then -- down arrow pressed
@@ -182,6 +197,15 @@ function _update()
     if powerup_select_confirmed then
       powerup_confirm_timer = powerup_confirm_timer - 1
       if powerup_confirm_timer <= 0 then
+        -- activate power-up
+        if selected_powerup == 1 then
+          powerup_extra_life = true
+        elseif selected_powerup == 2 then
+          powerup_increase_speed = true
+        elseif selected_powerup == 3 then
+          powerup_increase_fire_speed = true
+        end
+        
         -- transition to level select
         game_state = "level_select"
         powerup_select_confirmed = false -- reset confirmation state
@@ -222,8 +246,13 @@ function _update()
         victory_triggered = false
         victory_timer = 0
         level_select_timer = 0
-        level_select_confirmed = false  -- reset confirmation state
-        player_lives = 3
+        level_select_confirmed = false
+        
+        if powerup_extra_life then
+          player_lives = 4
+        else
+          player_lives = 3
+        end
         player_hit_timer = 0
         player_death_timer = 0
         player_death_triggered = false
@@ -675,15 +704,21 @@ function _draw()
     
     -- draw power-up options
     for i = 1, max_powerup do
-      local y_pos = 40 + (i * 8)
       local powerup_text = powerup_options[i]
       
-      -- draw cursor for selected power-up
-      if i == selected_powerup then
-        print(">", 30, y_pos, 7)
-        print(powerup_text, 38, y_pos, 7)
+      -- skip if already active
+      if i == 1 and powerup_extra_life then
+        -- don't draw
       else
-        print(powerup_text, 38, y_pos, 6)
+        local y_pos = 40 + (i * 8)
+        
+        -- draw cursor for selected power-up
+        if i == selected_powerup then
+          print(">", 30, y_pos, 7)
+          print(powerup_text, 38, y_pos, 7)
+        else
+          print(powerup_text, 38, y_pos, 6)
+        end
       end
     end
   end
