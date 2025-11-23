@@ -143,6 +143,9 @@ function _init()
     "Vortani Reach"
   }
   
+  -- completed levels
+  completed_levels = {}
+  
   -- debug: add a stationary laser right above player to see alignment
   --[[
   add(bullets, {
@@ -165,20 +168,10 @@ end
 function _update()
   -- power-up select controls
   if game_state == "powerup_select" then
-    -- adjust selected powerup if extra life is hidden and we're on option 1
-    if powerup_extra_life and selected_powerup == 1 then
-      selected_powerup = 2 -- move to first visible option
-    end
-    
-    if btnp(2) then -- up arrow pressed
+    if btnp(2) then
       if selected_powerup > 1 then
         selected_powerup = selected_powerup - 1
-        -- skip hidden extra life option
-        if powerup_extra_life and selected_powerup == 1 then
-          selected_powerup = 2
-        else
-          sfx(20)
-        end
+        sfx(20)
       end
     end
     if btnp(3) then -- down arrow pressed
@@ -216,16 +209,40 @@ function _update()
 
   -- level select controls
   if game_state == "level_select" then
-    if btnp(2) then
-      if selected_level > 1 then
-        selected_level = selected_level - 1
-        sfx(20) -- cursor sound
+    
+    while selected_level <= max_level and completed_levels[selected_level] do
+      selected_level = selected_level + 1
+    end
+    
+    if selected_level > max_level then
+      selected_level = 1
+      while selected_level <= max_level and completed_levels[selected_level] do
+        selected_level = selected_level + 1
       end
     end
-    if btnp(3) then
-      if selected_level < max_level then
+    
+    if btnp(2) then -- up arrow
+      local original = selected_level
+      repeat
+        selected_level = selected_level - 1
+        if selected_level < 1 then
+          selected_level = max_level
+        end
+      until not completed_levels[selected_level] or selected_level == original
+      if selected_level ~= original then
+        sfx(20)
+      end
+    end
+    if btnp(3) then  
+      local original = selected_level
+      repeat
         selected_level = selected_level + 1
-        sfx(20) -- cursor sound
+        if selected_level > max_level then
+          selected_level = 1
+        end
+      until not completed_levels[selected_level] or selected_level == original
+      if selected_level ~= original then
+        sfx(20)
       end
     end
     if btnp(5) then -- select level
@@ -340,6 +357,11 @@ function _update()
           sfx(3) -- enemy death sound only
           victory_timer = victory_delay
           enemy_death_flash_timer = 0 -- reset flash timer
+          
+          -- mark level as completed
+          if current_level > 0 then
+            completed_levels[current_level] = true
+          end
           
           -- clear all enemy bullets
           enemy_bullets = {}
@@ -525,9 +547,18 @@ function _update()
   if btn(2) and btn(4) and btn(5) and not enemy_defeated then
     enemy_health = 0
     enemy_defeated = true
-    music(-1)
-    sfx(3)
+    music(-1) -- stop music
+    sfx(3) -- enemy death sound only
     victory_timer = victory_delay
+    enemy_death_flash_timer = 0 -- reset flash timer
+    
+    -- mark level as completed (but not starting level) - same as normal kill
+    if current_level > 0 then
+      completed_levels[current_level] = true
+    end
+    
+    -- clear all enemy bullets - same as normal kill
+    enemy_bullets = {}
   end
   
   -- victory timer system
@@ -733,16 +764,21 @@ function _draw()
     print("Select Level", 40, 32, 7)
     
     -- draw level options
+    local display_row = 0
     for i = 1, max_level do
-      local y_pos = 40 + (i * 8)
-      local level_text = star_systems[i]
-      
-      -- draw cursor for selected level
-      if i == selected_level then
-        print(">", 30, y_pos, 7)
-        print(level_text, 38, y_pos, 7)  -- highlight selected
-      else
-        print(level_text, 38, y_pos, 6)  -- normal color
+      -- skip completed levels
+      if not completed_levels[i] then
+        display_row = display_row + 1
+        local y_pos = 40 + (display_row * 8)
+        local level_text = star_systems[i]
+        
+        -- draw cursor for selected level
+        if i == selected_level then
+          print(">", 30, y_pos, 7)
+          print(level_text, 38, y_pos, 7)  -- highlight selected
+        else
+          print(level_text, 38, y_pos, 6)  -- normal color
+        end
       end
     end
   end
