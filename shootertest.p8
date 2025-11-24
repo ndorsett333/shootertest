@@ -168,15 +168,49 @@ end
 function _update()
   -- power-up select controls
   if game_state == "powerup_select" then
-    if btnp(2) then
-      if selected_powerup > 1 then
+    -- auto-adjust for already taken
+    while selected_powerup <= max_powerup and 
+          ((selected_powerup == 1 and powerup_extra_life) or
+           (selected_powerup == 2 and powerup_increase_speed) or
+           (selected_powerup == 3 and powerup_increase_fire_speed)) do
+      selected_powerup = selected_powerup + 1
+    end
+    -- if all powerups taken, wrap to first available
+    if selected_powerup > max_powerup then
+      selected_powerup = 1
+      while selected_powerup <= max_powerup and 
+            ((selected_powerup == 1 and powerup_extra_life) or
+             (selected_powerup == 2 and powerup_increase_speed) or
+             (selected_powerup == 3 and powerup_increase_fire_speed)) do
+        selected_powerup = selected_powerup + 1
+      end
+    end
+    
+    if btnp(2) then -- up arrow
+      local original = selected_powerup
+      repeat
         selected_powerup = selected_powerup - 1
+        if selected_powerup < 1 then
+          selected_powerup = max_powerup
+        end
+      until not ((selected_powerup == 1 and powerup_extra_life) or
+                  (selected_powerup == 2 and powerup_increase_speed) or
+                  (selected_powerup == 3 and powerup_increase_fire_speed)) or selected_powerup == original
+      if selected_powerup ~= original then
         sfx(20)
       end
     end
-    if btnp(3) then -- down arrow pressed
-      if selected_powerup < max_powerup then
+    if btnp(3) then -- down arrow
+      local original = selected_powerup
+      repeat
         selected_powerup = selected_powerup + 1
+        if selected_powerup > max_powerup then
+          selected_powerup = 1
+        end
+      until not ((selected_powerup == 1 and powerup_extra_life) or
+                  (selected_powerup == 2 and powerup_increase_speed) or
+                  (selected_powerup == 3 and powerup_increase_fire_speed)) or selected_powerup == original
+      if selected_powerup ~= original then
         sfx(20)
       end
     end
@@ -283,11 +317,18 @@ function _update()
   
   -- player movement controls
   if not enemy_defeated and player_lives > 0 then
+    
+    -- determine player speed based on power-up
+    local current_speed = player_speed
+    if powerup_increase_speed then
+      current_speed = player_speed * 2  -- 100% speed increase
+    end
+    
     if btn(0) then -- left arrow
-      player_x = player_x - player_speed
+      player_x = player_x - current_speed
     end
     if btn(1) then -- right arrow
-      player_x = player_x + player_speed
+      player_x = player_x + current_speed
     end
     
     -- keep player on screen
@@ -733,15 +774,17 @@ function _draw()
     -- title
     print("Choose Power-Up", 35, 32, 7)
     
-    -- draw power-up options
+    -- draw power-up options. skip selected power-ups
+    local display_row = 0
     for i = 1, max_powerup do
       local powerup_text = powerup_options[i]
       
-      -- skip if already active
-      if i == 1 and powerup_extra_life then
-        -- don't draw
-      else
-        local y_pos = 40 + (i * 8)
+      -- skip selected power-ups
+      if not ((i == 1 and powerup_extra_life) or
+              (i == 2 and powerup_increase_speed) or
+              (i == 3 and powerup_increase_fire_speed)) then
+        display_row = display_row + 1
+        local y_pos = 40 + (display_row * 8)
         
         -- draw cursor for selected power-up
         if i == selected_powerup then
@@ -845,8 +888,8 @@ c8041f20182501825118221182111821118211182111821118111181111811118111181111811118
 000e150023e4023e4023e4023e400000017e4017e4017e4017e4017e4017e400000021e4021e4021e4021e4012e4012e4012e4012e4012e400140001400014000140001400014000140001400014000140001400
 000e13000be400be400be4000000000001ee40000001ae40000001ce40000000000017e4017e4017e4017e4017e4017e4017e4001400014000140001400014000140001400014000140001400014000140001400
 000e13001ae501ce401ce401ce401ce401ce401ce401ce40000000000000000000001ae400000023e4023e4023e4023e4023e4001400014000140001400014000140001400014000140001400014000140001400
-000b0000246501e64017620116201160000000000000000000000000001e20000000000000000000000213000000000000000001d40000000000001c500000000000000000000000000000000000000000000000
-001000001805015000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000b0000246501e64017620116201160000000000000000000000000001e20000000000000213000000000000000001d40000000000001c500000000000000000000000000000000000000000000000
+001000001805015000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000d00001875018750187501b7501f75022750227502275024750247501d7001e7002775028750297502975029750297502975029750297500e70022700227002370025700000000000000000000000000000000
 __music__
 01 0708090a
