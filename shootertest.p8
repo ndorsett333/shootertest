@@ -361,14 +361,30 @@ function _update()
     -- play laser sound
     sfx(2)
     
-    -- create new bullet at player position
-    add(bullets, {
-      x = player_x, -- same as debug beam position
-      y = player_y - 8  -- just above player sprite
-    })
+    -- determine fire delay and bullet count based on power-up
+    local current_fire_delay = fire_delay
+    if powerup_increase_fire_speed then
+      current_fire_delay = fire_delay / 2  -- half the delay (twice as fast)
+      
+      -- create dual beams
+      add(bullets, {
+        x = player_x - 2, -- left beam
+        y = player_y - 8
+      })
+      add(bullets, {
+        x = player_x + 2, -- right beam  
+        y = player_y - 8
+      })
+    else
+      -- create single bullet at player position
+      add(bullets, {
+        x = player_x,
+        y = player_y - 8
+      })
+    end
     
-    -- set cooldown to prevent auto-fire
-    fire_cooldown = fire_delay
+    -- set cooldown based on power-up
+    fire_cooldown = current_fire_delay
   end
   fire_button_was_pressed = fire_button_pressed
   
