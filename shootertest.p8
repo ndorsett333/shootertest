@@ -454,8 +454,14 @@ function _update()
       enemy_change_timer = 60 + rnd(60)     -- reset timer to 60-120 frames
     end
     
+    -- enemy speed based on current level
+    local current_enemy_speed = enemy_speed
+    if current_level > 0 then
+      current_enemy_speed = enemy_speed * 1.75
+    end
+    
     -- move enemy in current direction
-    enemy_x = enemy_x + (enemy_speed * enemy_dir)
+    enemy_x = enemy_x + (current_enemy_speed * enemy_dir)
     
     -- bounce off screen edges and change direction
     if enemy_x <= 0 then
@@ -491,8 +497,17 @@ function _update()
         y = enemy_y + 8  -- just below enemy sprite
       })
       
-      -- reset shoot timer with random delay
-      enemy_shoot_timer = enemy_shoot_delay_min + rnd(enemy_shoot_delay_max - enemy_shoot_delay_min)
+      -- determine fire delay based on current level
+      local current_min_delay = enemy_shoot_delay_min
+      local current_max_delay = enemy_shoot_delay_max
+      if current_level > 0 then
+        -- same faster firing for all levels 1-3
+        current_min_delay = enemy_shoot_delay_min * 0.6  -- 40% faster firing
+        current_max_delay = enemy_shoot_delay_max * 0.6
+      end
+      
+      -- reset shoot timer with level-adjusted delay
+      enemy_shoot_timer = current_min_delay + rnd(current_max_delay - current_min_delay)
     end
     
     -- store enemy position for next frame path detection
