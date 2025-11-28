@@ -396,7 +396,7 @@ function _update()
       
       -- check collision with enemy (if not defeated)
       
-      if not enemy_defeated and 
+      if not enemy_defeated and enemy_hit_timer <= 0 and
          bullet.x < enemy_x + 8 and bullet.x + 8 > enemy_x and
          bullet.y < enemy_y + 8 and bullet.y + 8 > enemy_y then
         -- enemy hit sound
@@ -404,7 +404,7 @@ function _update()
         
         -- enemy takes damage
         enemy_health = enemy_health - 1
-        enemy_hit_timer = enemy_hit_delay -- start hit flash timer
+        enemy_hit_timer = enemy_hit_delay -- start hit flash timer AND invincibility
         del(bullets, bullet)
         
         -- check if enemy is defeated
