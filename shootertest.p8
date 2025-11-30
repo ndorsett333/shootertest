@@ -536,27 +536,33 @@ end
           -- fire big long shot (sprites 8, 24, 40)
           enemy_shot_counter = 0  -- reset counter
           
+          
+          sfx(22)
+          
           -- create three-part big shot
           add(enemy_bullets, {
             x = enemy_x + 4, -- center of enemy sprite
             y = enemy_y + 8, -- just below enemy sprite
             is_big_shot = true,
             speed = 1, -- slower than normal bullets
-            part = 1 -- first part (sprite 8)
+            part = 1, -- first part (sprite 8)
+            flicker_timer = 0 -- for flicker effect
           })
           add(enemy_bullets, {
             x = enemy_x + 4,
             y = enemy_y + 16, -- 8 pixels below first part
             is_big_shot = true,
             speed = 1,
-            part = 2 -- middle part (sprite 24)
+            part = 2, -- middle part (sprite 24)
+            flicker_timer = 0 -- for flicker effect
           })
           add(enemy_bullets, {
             x = enemy_x + 4,
             y = enemy_y + 24, -- 8 pixels below middle part
             is_big_shot = true,
             speed = 1,
-            part = 3 -- last part (sprite 40)
+            part = 3, -- last part (sprite 40)
+            flicker_timer = 0 -- for flicker effect
           })
         else
           -- fire normal bullet
@@ -597,6 +603,11 @@ end
   -- update enemy bullets
   for bullet in all(enemy_bullets) do
     bullet.y = bullet.y + bullet.speed
+    
+    -- update flicker timer for big shots
+    if bullet.is_big_shot then
+      bullet.flicker_timer = bullet.flicker_timer + 1
+    end
     
     -- check collision with player
     if player_hit_timer <= 0 and player_lives > 0 and
@@ -797,13 +808,17 @@ function _draw()
   -- draw enemy bullets
   for bullet in all(enemy_bullets) do
     if bullet.is_big_shot then
-      local sprite = 8 -- default to first part
-      if bullet.part == 2 then
-        sprite = 24 -- middle part
-      elseif bullet.part == 3 then
-        sprite = 40 -- last part
+      -- flicker effect
+      if (bullet.flicker_timer % 10) < 5 then
+        local sprite = 8 -- default to first part
+        if bullet.part == 2 then
+          sprite = 24 -- middle part
+        elseif bullet.part == 3 then
+          sprite = 40 -- last part
+        end
+        spr(sprite, bullet.x, bullet.y)
       end
-      spr(sprite, bullet.x, bullet.y)
+      
     else
       spr(16, bullet.x, bullet.y) -- normal bullet sprite
     end
@@ -1023,6 +1038,7 @@ c8041f20182501825118221182111821118211182111821118111181111811118111181111811118
 000b0000246501e64017620116201160000000000000000000000000001e20000000000000000000000213000000000000000001d40000000000001c500000000000000000000000000000000000000000000000
 001000001805015000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000d00001875018750187501b7501f75022750227502275024750247501d7001e7002775028750297502975029750297502975029750297500e70022700227002370025700000000000000000000000000000000
+001000001802018020180201602018020180201802016020180001800018000160001800018000180001600018000180001800016000180001800018000160001800018000180001600018000180001800016000
 __music__
 01 0708090a
 00 0b0c0d0e
