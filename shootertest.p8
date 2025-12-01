@@ -34,6 +34,12 @@ function _init()
   enemy_shield_timer = 0
   enemy_shield_duration = 300  -- 5 seconds
   
+  -- Level 1 invisibility system
+  enemy_invisible = false
+  enemy_visibility_timer = 600  -- 10 seconds visible initially
+  enemy_visible_duration = 600  -- 10 seconds visible
+  enemy_invisible_duration = 300  -- 5 seconds invisible
+  
   -- enemy shooting system
   enemy_bullets = {}
   enemy_bullet_speed = 2
@@ -321,6 +327,15 @@ function _update()
           enemy_shot_counter = 0
         end
 
+        -- initialize invisibility system for Level 1
+        if current_level == 1 then
+          enemy_invisible = false
+          enemy_visibility_timer = enemy_visible_duration  -- start visible for 10 seconds
+        else
+          enemy_invisible = false
+          enemy_visibility_timer = 0
+        end
+
         if powerup_extra_life then
           player_lives = 4
         else
@@ -385,6 +400,22 @@ function _update()
     end
   end
   
+  -- update Level 1 invisibility timer
+  if current_level == 1 and not enemy_defeated then
+    enemy_visibility_timer = enemy_visibility_timer - 1
+    if enemy_visibility_timer <= 0 then
+      if enemy_invisible then
+        -- switch back to visible
+        enemy_invisible = false
+        enemy_visibility_timer = enemy_visible_duration  -- 10 seconds visible
+      else
+        -- switch to invisible
+        enemy_invisible = true
+        enemy_visibility_timer = enemy_invisible_duration  -- 5 seconds invisible
+      end
+    end
+  end
+
   -- shooting
   local fire_button_pressed = btn(5)
   if fire_button_pressed and not fire_button_was_pressed and fire_cooldown <= 0 and not enemy_defeated and player_lives > 0 then
@@ -536,7 +567,6 @@ end
           -- fire big long shot (sprites 8, 24, 40)
           enemy_shot_counter = 0  -- reset counter
           
-          
           sfx(22)
           
           -- create three-part big shot
@@ -573,6 +603,20 @@ end
             speed = enemy_bullet_speed
           })
         end
+      elseif current_level == 1 then
+        -- Level 1: dual beam shooting
+        add(enemy_bullets, {
+          x = enemy_x + 2, -- left beam
+          y = enemy_y + 8,
+          is_big_shot = false,
+          speed = enemy_bullet_speed
+        })
+        add(enemy_bullets, {
+          x = enemy_x + 6, -- right beam  
+          y = enemy_y + 8,
+          is_big_shot = false,
+          speed = enemy_bullet_speed
+        })
       else
         -- normal bullet for other levels
         add(enemy_bullets, {
@@ -586,8 +630,12 @@ end
       -- determine fire delay based on current level
       local current_min_delay = enemy_shoot_delay_min
       local current_max_delay = enemy_shoot_delay_max
-      if current_level > 0 then
-        -- same faster firing for all levels 1-3
+      if current_level == 1 then
+        -- Level 1: extra fast firing
+        current_min_delay = enemy_shoot_delay_min * 0.4 
+        current_max_delay = enemy_shoot_delay_max * 0.4
+      elseif current_level > 1 then
+        
         current_min_delay = enemy_shoot_delay_min * 0.6  -- 40% faster firing
         current_max_delay = enemy_shoot_delay_max * 0.6
       end
@@ -844,30 +892,35 @@ function _draw()
     end
     -- after victory timer expires
   else
-    -- choose enemy sprite based on current level
-    local enemy_sprite = 2  -- default sprite
-    if current_level == 1 then
-      enemy_sprite = 35  -- Zephyros Prime
-    elseif current_level == 2 then
-      enemy_sprite = 36  -- Nexar Cluster
-    elseif current_level == 3 then
--- Vortani Reach - power shield system
-      if enemy_power_shield_active then
-        enemy_sprite = 38  -- power shield active
-      else
-      enemy_sprite = 37  -- power shield down
+    -- Level 1 invisibility check - don't draw if invisible
+    if current_level == 1 and enemy_invisible then
+      -- enemy is invisible, don't draw anything
+    else
+      -- choose enemy sprite based on current level
+      local enemy_sprite = 2  -- default sprite
+      if current_level == 1 then
+        enemy_sprite = 35  -- Zephyros Prime
+      elseif current_level == 2 then
+        enemy_sprite = 36  -- Nexar Cluster
+      elseif current_level == 3 then
+        -- Vortani Reach - power shield system
+        if enemy_power_shield_active then
+          enemy_sprite = 38  -- power shield active
+        else
+          enemy_sprite = 37  -- power shield down
+        end
       end
-    end
-    
-    -- flash between normal and hit sprite during hit timer
-    if enemy_hit_timer > 0 then
-      -- flash every 4 frames for visible effect
-      if (enemy_hit_timer % 8) < 4 then
-        enemy_sprite = 33  -- hit sprite
+      
+      -- flash between normal and hit sprite during hit timer
+      if enemy_hit_timer > 0 then
+        -- flash every 4 frames for visible effect
+        if (enemy_hit_timer % 8) < 4 then
+          enemy_sprite = 33  -- hit sprite
+        end
       end
+      
+      spr(enemy_sprite, enemy_x, enemy_y)
     end
-    
-    spr(enemy_sprite, enemy_x, enemy_y)
   end
   
   -- draw player ship
@@ -1035,8 +1088,8 @@ c8041f20182501825118221182111821118211182111821118111181111811118111181111811118
 000e150023e4023e4023e4023e400000017e4017e4017e4017e4017e4017e400000021e4021e4021e4021e4012e4012e4012e4012e4012e400140001400014000140001400014000140001400014000140001400
 000e13000be400be400be4000000000001ee40000001ae40000001ce40000000000017e4017e4017e4017e4017e4017e4017e4001400014000140001400014000140001400014000140001400014000140001400
 000e13001ae501ce401ce401ce401ce401ce401ce401ce40000000000000000000001ae400000023e4023e4023e4023e4023e4001400014000140001400014000140001400014000140001400014000140001400
-000b0000246501e64017620116201160000000000000000000000000001e20000000000000000000000213000000000000000001d40000000000001c500000000000000000000000000000000000000000000000
-001000001805015000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000b0000246501e64017620116201160000000000000000000000000001e20000000000000000000000213000000000000000001d40000000000001c500000000000000000000000000000000000000000000
+001000001805015000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000d00001875018750187501b7501f75022750227502275024750247501d7001e7002775028750297502975029750297502975029750297500e70022700227002370025700000000000000000000000000000000
 001000001802018020180201602018020180201802016020180001800018000160001800018000180001600018000180001800016000180001800018000160001800018000180001600018000180001800016000
 __music__
