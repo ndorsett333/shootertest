@@ -24,7 +24,7 @@ function _init()
   enemy_speed = 1.25
   enemy_dir = 1   -- direction: 1 = right, -1 = left
   enemy_change_timer = 0  -- timer for direction changes
-  enemy_health = 6  -- increased from 4 to 6 lives
+  enemy_health = 6
   enemy_defeated = false
   enemy_hit_timer = 0
   enemy_hit_delay = 30
@@ -307,8 +307,9 @@ function _update()
         -- reset game state
         game_state = "playing"
         enemy_defeated = false
-        enemy_health = 6  -- increased from 4 to 6 lives
+        enemy_health = 6
         victory_triggered = false
+        victory_timer = 0
         level_select_timer = 0
         level_select_confirmed = false
 
@@ -1097,4 +1098,3 @@ __music__
 01 0708090a
 00 0b0c0d0e
 02 0f101112
-
