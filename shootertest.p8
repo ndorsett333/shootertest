@@ -160,22 +160,8 @@ function _init()
   -- completed levels
   completed_levels = {}
   
-  -- final boss system
-  final_boss_active = false
-  final_boss_x = 56  -- center (128/2 - 16/2)
-  final_boss_y = 4   -- near top of screen
-  final_boss_speed = 1
-  final_boss_dir = 1
-  final_boss_change_timer = 0
-  final_boss_health = 12
-  final_boss_defeated = false
-  final_boss_hit_timer = 0
-  final_boss_hit_delay = 30
-  final_boss_bullets = {}
-  final_boss_shoot_timer = 0
-  final_boss_shoot_delay_min = 10
-  final_boss_shoot_delay_max = 30
-  final_boss_death_flash_timer = 0
+  -- final boss flag
+  is_final_boss = false
   final_boss_intro_timer = 0
   final_boss_intro_delay = 120  -- 2 seconds to show intro text
   
@@ -481,10 +467,15 @@ function _update()
       bullet.y = bullet.y - bullet_speed
       
       -- check collision with enemy (if not defeated)
-      
+      local enemy_w = 8
+      local enemy_h = 8
+      if is_final_boss then
+        enemy_w = 16
+        enemy_h = 16
+      end
       if not enemy_defeated and enemy_hit_timer <= 0 and
-         bullet.x < enemy_x + 8 and bullet.x + 8 > enemy_x and
-         bullet.y < enemy_y + 8 and bullet.y + 8 > enemy_y then
+         bullet.x < enemy_x + enemy_w and bullet.x + 8 > enemy_x and
+         bullet.y < enemy_y + enemy_h and bullet.y + 8 > enemy_y then
         -- enemy hit sound
         sfx(0)
         
@@ -549,7 +540,9 @@ end
     
     -- enemy speed based on current level
     local current_enemy_speed = enemy_speed
-    if current_level > 0 then
+    if is_final_boss then
+      current_enemy_speed = 1  -- boss speed
+    elseif current_level > 0 then
       current_enemy_speed = enemy_speed * 2  -- increase speed for 1-3
     end
     
@@ -557,12 +550,16 @@ end
     enemy_x = enemy_x + (current_enemy_speed * enemy_dir)
     
     -- bounce off screen edges and change direction
+    local enemy_max_x = 120  -- 128 - 8 for regular enemy
+    if is_final_boss then
+      enemy_max_x = 112  -- 128 - 16 for 2x2 boss sprite
+    end
     if enemy_x <= 0 then
       enemy_x = 0
       enemy_dir = 1  -- force right
       enemy_change_timer = 30 + rnd(30)  -- shorter timer after bouncing
-    elseif enemy_x >= 120 then
-      enemy_x = 120
+    elseif enemy_x >= enemy_max_x then
+      enemy_x = enemy_max_x
       enemy_dir = -1  -- force left
       enemy_change_timer = 30 + rnd(30)  -- shorter timer after bouncing
     end
@@ -584,8 +581,22 @@ end
       -- play enemy shoot sound
       sfx(1)
       
+      -- Final boss: dual bullets from sides
+      if is_final_boss then
+        add(enemy_bullets, {
+          x = enemy_x + 2,
+          y = enemy_y + 16,
+          is_big_shot = false,
+          speed = enemy_bullet_speed
+        })
+        add(enemy_bullets, {
+          x = enemy_x + 12,
+          y = enemy_y + 16,
+          is_big_shot = false,
+          speed = enemy_bullet_speed
+        })
       -- Level 2 special weapon logic
-      if current_level == 2 then
+      elseif current_level == 2 then
         enemy_shot_counter = enemy_shot_counter + 1
         
         if enemy_shot_counter >= 5 then
@@ -655,7 +666,9 @@ end
       -- determine fire delay based on current level
       local current_min_delay = enemy_shoot_delay_min
       local current_max_delay = enemy_shoot_delay_max
-      if current_level == 1 then
+      if is_final_boss then
+        -- boss already has fast delay values set, use as-is
+      elseif current_level == 1 then
         -- Level 1: extra fast firing
         current_min_delay = enemy_shoot_delay_min * 0.4 
         current_max_delay = enemy_shoot_delay_max * 0.4
@@ -807,8 +820,10 @@ end
     if victory_timer == 0 and not victory_triggered then
       sfx(5) -- victory sound
       victory_triggered = true
-      -- start power up select timer
-      powerup_select_timer = powerup_select_delay
+      -- start power up select timer (not for final boss)
+      if not is_final_boss then
+        powerup_select_timer = powerup_select_delay
+      end
     end
   end
   
@@ -870,24 +885,25 @@ end
     end
     final_boss_intro_timer = final_boss_intro_timer - 1
     if final_boss_intro_timer <= 0 then
-      -- transition to final boss fight
-      game_state = "final_boss"
-      final_boss_active = true
-      final_boss_defeated = false
-      final_boss_health = 12
-      final_boss_x = 56
-      final_boss_y = 4
-      final_boss_dir = 1
-      final_boss_change_timer = 60
-      final_boss_hit_timer = 0
-      final_boss_bullets = {}
-      final_boss_shoot_timer = final_boss_shoot_delay_min + rnd(final_boss_shoot_delay_max - final_boss_shoot_delay_min)
-      final_boss_death_flash_timer = 0
+      -- transition to final boss fight using regular enemy system
+      game_state = "playing"
+      is_final_boss = true
       enemy_defeated = false
+      enemy_health = 12
+      enemy_x = 56  -- center for 16px wide boss
+      enemy_y = 4   -- near top of screen
+      enemy_dir = 1
+      enemy_change_timer = 60
+      enemy_hit_timer = 0
+      enemy_shoot_delay_min = 10  -- boss fires faster
+      enemy_shoot_delay_max = 30
+      enemy_shoot_timer = enemy_shoot_delay_min + rnd(enemy_shoot_delay_max - enemy_shoot_delay_min)
+      enemy_death_flash_timer = 0
       victory_triggered = false
       victory_timer = 0
       bullets = {}
       enemy_bullets = {}
+      rocks = {}
       if powerup_extra_life then
         player_lives = 4
       else
@@ -898,183 +914,6 @@ end
       player_death_triggered = false
       music(0)
     end
-    return
-  end
-  
-  -- final boss fight update
-  if game_state == "final_boss" then
-    -- player movement
-    if not final_boss_defeated and player_lives > 0 then
-      local current_speed = player_speed
-      if powerup_increase_speed then
-        current_speed = player_speed * 2
-      end
-      if btn(0) then player_x = player_x - current_speed end
-      if btn(1) then player_x = player_x + current_speed end
-      if player_x < 0 then player_x = 0 end
-      if player_x > 120 then player_x = 120 end
-    end
-    
-    -- fire cooldown
-    if fire_cooldown > 0 then fire_cooldown = fire_cooldown - 1 end
-    if player_hit_timer > 0 then player_hit_timer = player_hit_timer - 1 end
-    if final_boss_hit_timer > 0 then final_boss_hit_timer = final_boss_hit_timer - 1 end
-    
-    -- player shooting
-    local fire_pressed = btn(5)
-    if fire_pressed and not fire_button_was_pressed and fire_cooldown <= 0 and not final_boss_defeated and player_lives > 0 then
-      sfx(2)
-      local current_fire_delay = fire_delay
-      if powerup_increase_fire_speed then
-        current_fire_delay = fire_delay / 2
-        add(bullets, { x = player_x - 2, y = player_y - 8 })
-        add(bullets, { x = player_x + 2, y = player_y - 8 })
-      else
-        add(bullets, { x = player_x, y = player_y - 8 })
-      end
-      fire_cooldown = current_fire_delay
-    end
-    fire_button_was_pressed = fire_pressed
-    
-    -- update player bullets
-    for bullet in all(bullets) do
-      bullet.y = bullet.y - bullet_speed
-      
-      -- collision with final boss (16x16 hitbox)
-      if not final_boss_defeated and final_boss_hit_timer <= 0 and
-         bullet.x < final_boss_x + 16 and bullet.x + 8 > final_boss_x and
-         bullet.y < final_boss_y + 16 and bullet.y + 8 > final_boss_y then
-        sfx(0)
-        final_boss_health = final_boss_health - 1
-        final_boss_hit_timer = final_boss_hit_delay
-        del(bullets, bullet)
-        
-        if final_boss_health <= 0 then
-          final_boss_defeated = true
-          music(-1)
-          sfx(3)
-          victory_timer = victory_delay
-          enemy_death_flash_timer = 0
-          final_boss_bullets = {}
-        end
-      end
-      
-      -- check hit rocks
-      for rock in all(rocks) do
-        if bullet.x < rock.x + 8 and bullet.x + 8 > rock.x and
-           bullet.y < rock.y + 8 and bullet.y + 8 > rock.y then
-          del(bullets, bullet)
-          break
-        end
-      end
-      
-      if bullet.y < -8 then del(bullets, bullet) end
-    end
-    
-    -- final boss AI movement
-    if not final_boss_defeated and player_lives > 0 then
-      final_boss_change_timer = final_boss_change_timer - 1
-      if final_boss_change_timer <= 0 then
-        final_boss_dir = rnd() > 0.5 and 1 or -1
-        final_boss_change_timer = 60 + rnd(60)
-      end
-      
-      final_boss_x = final_boss_x + (final_boss_speed * final_boss_dir)
-      
-      if final_boss_x <= 0 then
-        final_boss_x = 0
-        final_boss_dir = 1
-        final_boss_change_timer = 30 + rnd(30)
-      elseif final_boss_x >= 112 then  -- 128 - 16
-        final_boss_x = 112
-        final_boss_dir = -1
-        final_boss_change_timer = 30 + rnd(30)
-      end
-    end
-    
-    -- final boss shooting
-    if not final_boss_defeated and player_lives > 0 then
-      final_boss_shoot_timer = final_boss_shoot_timer - 1
-      if final_boss_shoot_timer <= 0 then
-        sfx(1)
-        -- fire from left and right sides of boss
-        add(final_boss_bullets, {
-          x = final_boss_x + 2,
-          y = final_boss_y + 16,
-          speed = enemy_bullet_speed
-        })
-        add(final_boss_bullets, {
-          x = final_boss_x + 12,
-          y = final_boss_y + 16,
-          speed = enemy_bullet_speed
-        })
-        final_boss_shoot_timer = final_boss_shoot_delay_min + rnd(final_boss_shoot_delay_max - final_boss_shoot_delay_min)
-      end
-    end
-    
-    -- update final boss bullets
-    for bullet in all(final_boss_bullets) do
-      bullet.y = bullet.y + bullet.speed
-      
-      if player_hit_timer <= 0 and player_lives > 0 and
-         bullet.x < player_x + 8 and bullet.x + 8 > player_x and
-         bullet.y < player_y + 8 and bullet.y + 8 > player_y then
-        sfx(19)
-        player_lives = player_lives - 1
-        player_hit_timer = player_hit_delay
-        del(final_boss_bullets, bullet)
-        
-        if player_lives <= 0 then
-          music(-1)
-          sfx(4)
-          player_death_timer = player_death_delay
-          player_death_flash_timer = 0
-          bullets = {}
-          final_boss_bullets = {}
-        end
-        break
-      end
-      
-      if bullet.y > 115 then del(final_boss_bullets, bullet) end
-    end
-    
-    -- update rocks
-    if not final_boss_defeated and player_lives > 0 then
-      rock_spawn_timer = rock_spawn_timer - 1
-      if rock_spawn_timer <= 0 then
-        local rock_type = rnd()
-        if rock_type < 0.33 then
-          add(rocks, { x = 128, y = 40 + rnd(48), sprite = 6 })
-        elseif rock_type < 0.66 then
-          add(rocks, { x = 128, y = 40 + rnd(48), sprite = 7 })
-        else
-          local rock_y = 40 + rnd(48)
-          add(rocks, { x = 128, y = rock_y, sprite = 22, is_long = true, partner_id = #rocks + 2 })
-          add(rocks, { x = 136, y = rock_y, sprite = 23, is_long = true, partner_id = #rocks })
-        end
-        rock_spawn_timer = rock_spawn_delay_min + rnd(rock_spawn_delay_max - rock_spawn_delay_min)
-      end
-      for rock in all(rocks) do
-        rock.x = rock.x - rock_speed
-        if rock.x < -8 then del(rocks, rock) end
-      end
-    end
-    
-    -- victory timer for final boss
-    if final_boss_defeated and victory_timer > 0 then
-      victory_timer = victory_timer - 1
-      enemy_death_flash_timer = enemy_death_flash_timer + 1
-      if victory_timer == 0 then
-        sfx(5)
-      end
-    end
-    
-    -- death flash timer
-    if player_lives <= 0 and player_death_timer > 0 then
-      player_death_timer = player_death_timer - 1
-      player_death_flash_timer = player_death_flash_timer + 1
-    end
-    
     return
   end
 end
@@ -1089,11 +928,9 @@ function _draw()
   map(0, 0, 0, 0, 16, 16)
   
   -- draw health indicators based on enemy health
-  if game_state ~= "final_boss" then
-    for i = 1, enemy_health do
-      -- draw health sprites at top of map (positions 0,0 1,0 2,0)
-      spr(21, (i-1) * 8, 0) -- sprite 21 for health indicators
-    end
+  for i = 1, enemy_health do
+    -- draw health sprites at top of map (positions 0,0 1,0 2,0)
+    spr(21, (i-1) * 8, 0) -- sprite 21 for health indicators
   end
   
   -- draw player lives
@@ -1130,11 +967,21 @@ function _draw()
     spr(rock.sprite, rock.x, rock.y)
   end
   
-  -- draw enemy (sprite 2 or death flash if defeated) - skip during final boss
-  if game_state ~= "final_boss" then
-    if enemy_defeated then
-      -- only show enemy during victory timer
-      if victory_timer > 0 then
+  -- draw enemy
+  if enemy_defeated then
+    -- only show enemy during victory timer
+    if victory_timer > 0 then
+      if is_final_boss then
+        -- flash 2x2 explosion sprites
+        if (enemy_death_flash_timer % 8) < 4 then
+          -- empty frame (flash off)
+        else
+          spr(34, enemy_x, enemy_y)
+          spr(34, enemy_x + 8, enemy_y)
+          spr(34, enemy_x, enemy_y + 8)
+          spr(34, enemy_x + 8, enemy_y + 8)
+        end
+      else
         local enemy_sprite = 34  -- default death/explosion sprite
         
         -- flash between explosion sprite and empty sprite
@@ -1144,7 +991,23 @@ function _draw()
         
         spr(enemy_sprite, enemy_x, enemy_y)
       end
-      -- after victory timer expires
+    end
+    -- after victory timer expires
+  else
+    if is_final_boss then
+      -- draw 2x2 boss sprite
+      if enemy_hit_timer > 0 and (enemy_hit_timer % 8) < 4 then
+        -- flash hit sprites
+        spr(33, enemy_x, enemy_y)
+        spr(33, enemy_x + 8, enemy_y)
+        spr(33, enemy_x, enemy_y + 8)
+        spr(33, enemy_x + 8, enemy_y + 8)
+      else
+        spr(9, enemy_x, enemy_y)
+        spr(10, enemy_x + 8, enemy_y)
+        spr(25, enemy_x, enemy_y + 8)
+        spr(26, enemy_x + 8, enemy_y + 8)
+      end
     else
       -- Level 1 invisibility check - don't draw if invisible
       if current_level == 1 and enemy_invisible then
@@ -1207,14 +1070,21 @@ function _draw()
   end
   
   -- draw win message only after victory timer expires
-  if game_state ~= "final_boss" and enemy_defeated and victory_timer == 0 then
-    rectfill(35, 56, 85, 66, 1) 
-    -- draw "You won!" text in the center of the screen
-    print("You won!", 40, 60, 7) -- white text at center position
+  if enemy_defeated and victory_timer == 0 then
+    if is_final_boss then
+      rectfill(25, 52, 103, 70, 0)
+      rect(25, 52, 103, 70, 10)
+      print("You saved the", 32, 55, 10)
+      print("galaxy!!!", 40, 63, 10)
+    else
+      rectfill(35, 56, 85, 66, 1) 
+      -- draw "You won!" text in the center of the screen
+      print("You won!", 40, 60, 7) -- white text at center position
+    end
   end
   
   -- draw death message
-  if game_state ~= "final_boss" and player_lives <= 0 and player_death_timer == 0 then
+  if player_lives <= 0 and player_death_timer == 0 then
     rectfill(35, 56, 85, 66, 1) 
     
     print("You Died", 40, 60, 7)
@@ -1287,60 +1157,6 @@ function _draw()
     rect(10, 50, 118, 70, 8)      -- red border
     print("Your final fight", 24, 55, 8)
     print("is here!!!", 36, 63, 8)
-  end
-
-  -- draw final boss fight
-  if game_state == "final_boss" then
-    -- draw final boss health
-    for i = 1, final_boss_health do
-      spr(21, (i-1) * 8, 0)
-    end
-    
-    -- draw final boss bullets
-    for bullet in all(final_boss_bullets) do
-      spr(16, bullet.x, bullet.y)
-    end
-    
-    -- draw final boss (2x2 sprites)
-    if final_boss_defeated then
-      if victory_timer > 0 then
-        if (enemy_death_flash_timer % 8) < 4 then
-          -- flash to empty
-        else
-          spr(34, final_boss_x, final_boss_y)
-          spr(34, final_boss_x + 8, final_boss_y)
-          spr(34, final_boss_x, final_boss_y + 8)
-          spr(34, final_boss_x + 8, final_boss_y + 8)
-        end
-      end
-    else
-      if final_boss_hit_timer > 0 and (final_boss_hit_timer % 8) < 4 then
-        -- flash hit sprites
-        spr(33, final_boss_x, final_boss_y)
-        spr(33, final_boss_x + 8, final_boss_y)
-        spr(33, final_boss_x, final_boss_y + 8)
-        spr(33, final_boss_x + 8, final_boss_y + 8)
-      else
-        spr(9, final_boss_x, final_boss_y)
-        spr(10, final_boss_x + 8, final_boss_y)
-        spr(25, final_boss_x, final_boss_y + 8)
-        spr(26, final_boss_x + 8, final_boss_y + 8)
-      end
-    end
-    
-    -- draw win message after final boss
-    if final_boss_defeated and victory_timer == 0 then
-      rectfill(25, 52, 103, 70, 0)
-      rect(25, 52, 103, 70, 10)
-      print("You saved the", 32, 55, 10)
-      print("galaxy!!!", 40, 63, 10)
-    end
-    
-    -- draw death message
-    if player_lives <= 0 and player_death_timer == 0 then
-      rectfill(35, 56, 85, 66, 1)
-      print("You Died", 40, 60, 7)
-    end
   end
 end
 __gfx__
@@ -1415,4 +1231,3 @@ __music__
 01 0708090a
 00 0b0c0d0e
 02 0f101112
-
